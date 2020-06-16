@@ -41,6 +41,11 @@
               <groupId>org.antlr</groupId>
               <artifactId>antlr4-runtime</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>2.1</version>
+        </dependency>
 
         <!-- Testing -->
         <dependency>
@@ -80,6 +85,12 @@
             <artifactId>fest-assert</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Required by VerifyRecord -->
         <dependency>
             <groupId>io.confluent</groupId>
