@@ -27,9 +27,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /**
  * @author Andrey Pustovetov
@@ -46,6 +50,7 @@ public final class TransactionalBuffer {
     private final ExecutorService executor;
     private final AtomicInteger taskCounter;
     private final ErrorHandler errorHandler;
+    private final Supplier<Integer> commitQueueCapacity;
     private TransactionalBufferMetrics metrics;
     private final Set<String> abandonedTransactionIds;
 
@@ -60,13 +65,20 @@ public final class TransactionalBuffer {
     /**
      * Constructor to create a new instance.
      *
-     * @param logicalName  logical name
-     * @param errorHandler logError handler
-     * @param metrics      metrics MBean
+     * @param logicalName           logical name
+     * @param errorHandler          logError handler
+     * @param metrics               metrics MBean
+     * @param inCommitQueueCapacity commit queue capacity. On overflow, caller runs task
      */
-    TransactionalBuffer(String logicalName, ErrorHandler errorHandler, TransactionalBufferMetrics metrics) {
+    TransactionalBuffer(String logicalName, ErrorHandler errorHandler, TransactionalBufferMetrics metrics, int inCommitQueueCapacity) {
         this.transactions = new HashMap<>();
-        this.executor = Threads.newSingleThreadExecutor(OracleConnector.class, logicalName, "transactional-buffer");
+        final BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(inCommitQueueCapacity);
+        executor = new ThreadPoolExecutor(1, 1,
+                Integer.MAX_VALUE, TimeUnit.MILLISECONDS,
+                workQueue,
+                Threads.threadFactory(OracleConnector.class, logicalName, "transactional-buffer", true),
+                new ThreadPoolExecutor.CallerRunsPolicy());
+        commitQueueCapacity = workQueue::remainingCapacity;
         this.taskCounter = new AtomicInteger();
         this.errorHandler = errorHandler;
         this.metrics = metrics;
@@ -142,8 +154,11 @@ public final class TransactionalBuffer {
     }
 
     /**
+     * If the commit executor queue is full, back-pressure will be applied by letting execution of the callback
+     * be performed by the calling thread.
+     *
      * @param transactionId transaction identifier
-     * @param scn SCN of the commit.
+     * @param scn           SCN of the commit.
      * @param offsetContext Oracle offset
      * @param timestamp     commit timestamp
      * @param context       context to check that source is running
@@ -187,19 +202,21 @@ public final class TransactionalBuffer {
                 }
 
                 lastCommittedScn = new BigDecimal(scn.longValue());
-                metrics.incrementCommittedTransactions();
-                metrics.setActiveTransactions(transactions.size());
-                metrics.incrementCommittedDmlCounter(commitCallbacks.size());
-                metrics.setCommittedScn(scn.longValue());
             } catch (InterruptedException e) {
                 LogMinerHelper.logError(metrics, "Thread interrupted during running", e);
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
                 errorHandler.setProducerThrowable(e);
             } finally {
+                metrics.incrementCommittedTransactions();
+                metrics.setActiveTransactions(transactions.size());
+                metrics.incrementCommittedDmlCounter(commitCallbacks.size());
+                metrics.setCommittedScn(scn.longValue());
+                metrics.setCommitQueueCapacity(commitQueueCapacity.get());
                 taskCounter.decrementAndGet();
             }
         });
+        metrics.setCommitQueueCapacity(commitQueueCapacity.get());
 
         return true;
     }
@@ -325,9 +342,9 @@ public final class TransactionalBuffer {
         /**
          * Executes callback.
          *
-         * @param timestamp   commit timestamp
-         * @param smallestScn smallest SCN among other transactions
-         * @param commitScn commit SCN
+         * @param timestamp      commit timestamp
+         * @param smallestScn    smallest SCN among other transactions
+         * @param commitScn      commit SCN
          * @param callbackNumber number of the callback in the transaction
          */
         void execute(Timestamp timestamp, BigDecimal smallestScn, BigDecimal commitScn, int callbackNumber) throws InterruptedException;

@@ -89,7 +89,8 @@ public class LogMinerStreamingChangeEventSource implements StreamingChangeEventS
         this.dmlParser = new SimpleDmlParser(catalogName, connectorConfig.getSchemaName(), converters);
         this.transactionalBufferMetrics = new TransactionalBufferMetrics(taskContext);
         this.transactionalBufferMetrics.register(LOGGER);
-        transactionalBuffer = new TransactionalBuffer(connectorConfig.getLogicalName(), errorHandler, transactionalBufferMetrics);
+        transactionalBuffer = new TransactionalBuffer(connectorConfig.getLogicalName(), errorHandler,
+                transactionalBufferMetrics, connectorConfig.getMaxQueueSize());
         this.logMinerMetrics = new LogMinerMetrics(taskContext);
         this.logMinerMetrics.register(LOGGER);
         this.strategy = connectorConfig.getLogMiningStrategy();
@@ -106,7 +107,7 @@ public class LogMinerStreamingChangeEventSource implements StreamingChangeEventS
         Metronome metronome;
 
         // The top outer loop gives the resiliency on the network disconnections. This is critical for cloud deployment.
-        while(context.isRunning()) {
+        while (context.isRunning()) {
             try (Connection connection = jdbcConnection.connection(false);
                  PreparedStatement fetchFromMiningView =
                          connection.prepareStatement(SqlUtils.queryLogMinerContents(connectorConfig.getSchemaName(), jdbcConnection.username(), schema))) {
@@ -220,7 +221,7 @@ public class LogMinerStreamingChangeEventSource implements StreamingChangeEventS
     }
 
     private void updateStartScn() {
-        long nextStartScn  = transactionalBuffer.getLargestScn().equals(BigDecimal.ZERO) ? endScn : transactionalBuffer.getLargestScn().longValue();
+        long nextStartScn = transactionalBuffer.getLargestScn().equals(BigDecimal.ZERO) ? endScn : transactionalBuffer.getLargestScn().longValue();
         if (nextStartScn <= startScn) {
             // When system is idle, largest SCN may stay unchanged, move it forward then
             transactionalBuffer.resetLargestScn(endScn);
@@ -233,11 +234,11 @@ public class LogMinerStreamingChangeEventSource implements StreamingChangeEventS
         // nothing to do
     }
 
-    private boolean connectionProblem (Throwable e){
+    private boolean connectionProblem(Throwable e) {
         if (e.getMessage() == null || e.getCause() == null) {
             return false;
         }
-        return  e.getMessage().startsWith("ORA-03135") || // connection lost contact
+        return e.getMessage().startsWith("ORA-03135") || // connection lost contact
                 e.getMessage().startsWith("ORA-12543") || // TNS:destination host unreachable
                 e.getMessage().startsWith("ORA-00604") || // error occurred at recursive SQL level 1
                 e.getMessage().startsWith("ORA-01089") || // Oracle immediate shutdown in progress
