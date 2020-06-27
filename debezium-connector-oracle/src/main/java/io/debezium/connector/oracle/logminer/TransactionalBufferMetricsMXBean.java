@@ -42,6 +42,7 @@ public interface TransactionalBufferMetricsMXBean {
 
     /**
      * exposes total number of captured DMLs
+     *
      * @return captured DML count
      */
     long getCapturedDmlCount();
@@ -62,24 +63,28 @@ public interface TransactionalBufferMetricsMXBean {
 
     /**
      * It shows last committed SCN
+     *
      * @return committed SCN
      */
     Long getCommittedScn();
 
     /**
      * This is to get the lag between latest captured change timestamp in REDO LOG and time of it's placement in the buffer
+     *
      * @return lag in milliseconds
      */
     long getLagFromSource();
 
     /**
      * This is to get max value of the time difference between logging of source DB records into redo log and capturing it by Log Miner
+     *
      * @return value in milliseconds
      */
     long getMaxLagFromSource();
 
     /**
      * This is to get min value of the time difference between logging of source DB records into redo log and capturing it by Log Miner
+     *
      * @return value in milliseconds
      */
     long getMinLagFromSource();
@@ -87,21 +92,31 @@ public interface TransactionalBufferMetricsMXBean {
     /**
      * This is to get average value of the time difference between logging of source DB records into redo log and capturing it by Log Miner.
      * Average is calculated as summary of all lags / number of captured DB changes
+     *
      * @return value in milliseconds
      */
     long getAverageLagFromSource();
 
     /**
      * This is to get list of removed transactions from the Transactional Buffer
-     * @return count
+     *
+     * @return count abandoned transaction ids
      */
     Set<String> getAbandonedTransactionIds();
 
     /**
      * See which transactions were rolled back
+     *
      * @return set of transaction IDs
      */
     Set<String> getRolledBackTransactionIds();
+
+    /**
+     * Gets commit queue capacity. As the queue fills up, this reduces to zero
+     *
+     * @return the commit queue capacity
+     */
+    int getCommitQueueCapacity();
 
     /**
      * action to reset some metrics
@@ -110,16 +125,22 @@ public interface TransactionalBufferMetricsMXBean {
 
     /**
      * This is to get logged logError counter.
+     *
+     * @return the error counter
      */
     int getErrorCounter();
 
     /**
      * This is to get logged warning counter
+     *
+     * @return the warning counter
      */
     int getWarningCounter();
 
     /**
      * Get counter of encountered observations when SCN does not change in the offset.
+     *
+     * @return the scn freeze counter
      */
     int getScnFreezeCounter();
 }
