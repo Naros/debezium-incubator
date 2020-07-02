@@ -68,7 +68,7 @@ public class TransactionalBufferMetrics extends Metrics implements Transactional
     void calculateLagMetrics(Instant changeTime){
         if (changeTime != null) {
             Instant correctedChangeTime = changeTime.plus(Duration.ofMillis(timeDifference.longValue()));
-            lagFromTheSource.set(Duration.between(correctedChangeTime, Instant.now()));
+            lagFromTheSource.set(Duration.between(correctedChangeTime, Instant.now()).abs());
 
             if (maxLagFromTheSource.get().toMillis() < lagFromTheSource.get().toMillis()) {
                 maxLagFromTheSource.set(lagFromTheSource.get());

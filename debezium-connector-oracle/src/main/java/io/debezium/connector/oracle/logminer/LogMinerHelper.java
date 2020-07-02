@@ -89,6 +89,7 @@ public class LogMinerHelper {
     /**
      * This method returns next SCN for mining  and also updates MBean metrics
      * We use a configurable limit, because the larger mining range, the slower query from Log Miner content view.
+     * In addition capturing unlimited number of changes can blow up Java heap.
      * Gradual querying helps to catch up faster after long delays in mining.
      *
      * @param connection container level database connection

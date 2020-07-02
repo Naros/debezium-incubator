@@ -220,16 +220,18 @@ class LogMinerQueryResultProcessor {
      * The criteria is the offset SCN remains the same in five mining cycles
      */
     private void warnStuckScn() {
-        if (currentOffsetScn == offsetContext.getScn() && currentOffsetCommitScn != offsetContext.getCommitScn()) {
-            stuckScnCounter++;
-            // logWarn only once
-            if (stuckScnCounter == 5) {
-                LogMinerHelper.logWarn(transactionalBufferMetrics,
-                        "Offset SCN {} did not change in five mining cycles, hence the oldest transaction was not committed. Offset commit SCN: {}", currentOffsetScn, offsetContext.getCommitScn());
-                transactionalBufferMetrics.incrementScnFreezeCounter();
+        if (offsetContext != null && offsetContext.getCommitScn() != null) {
+            if (currentOffsetScn == offsetContext.getScn() && currentOffsetCommitScn != offsetContext.getCommitScn()) {
+                stuckScnCounter++;
+                // logWarn only once
+                if (stuckScnCounter == 5) {
+                    LogMinerHelper.logWarn(transactionalBufferMetrics,
+                            "Offset SCN {} did not change in five mining cycles, hence the oldest transaction was not committed. Offset commit SCN: {}", currentOffsetScn, offsetContext.getCommitScn());
+                    transactionalBufferMetrics.incrementScnFreezeCounter();
+                }
+            } else {
+                stuckScnCounter = 0;
             }
-        } else {
-            stuckScnCounter = 0;
         }
     }
 }
